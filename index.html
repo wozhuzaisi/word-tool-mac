@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word 文档工具 - 智能压缩 & 文档拆分 | macOS 桌面应用</title>
+    <meta name="description" content="免费 macOS 桌面应用，一键智能压缩 Word 文档中的图片，大幅减小文件体积；支持按份数拆分文档，保留原格式。">
+    <meta name="keywords" content="Word压缩,Word图片压缩,文档拆分,macOS工具,Word文档工具,docx压缩">
+    <style>
+        /* ===== Reset & Base ===== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+            color: #1d1d1f;
+            background: #fff;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        a { color: inherit; text-decoration: none; }
+        img { max-width: 100%; display: block; }
+
+        /* ===== Navigation ===== */
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+        }
+        .nav-inner {
+            max-width: 1080px; margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; height: 56px;
+        }
+        .nav-brand { font-size: 18px; font-weight: 700; color: #1d1d1f; display: flex; align-items: center; gap: 8px; }
+        .nav-brand span { font-size: 22px; }
+        .nav-links { display: flex; gap: 28px; }
+        .nav-links a { font-size: 14px; color: #555; transition: color .2s; }
+        .nav-links a:hover { color: #4A90D9; }
+        .nav-cta {
+            display: inline-block; padding: 8px 20px;
+            background: #4A90D9; color: #fff; border-radius: 20px;
+            font-size: 14px; font-weight: 600; transition: background .2s;
+        }
+        .nav-cta:hover { background: #357ABD; }
+
+        /* ===== Hero ===== */
+        .hero {
+            padding: 140px 24px 80px;
+            text-align: center;
+            background: linear-gradient(180deg, #f5f9ff 0%, #ffffff 100%);
+        }
+        .hero-badge {
+            display: inline-block; padding: 6px 16px;
+            background: #e8f0fe; color: #4A90D9; border-radius: 20px;
+            font-size: 13px; font-weight: 600; margin-bottom: 24px;
+        }
+        .hero h1 {
+            font-size: 48px; font-weight: 800; line-height: 1.2;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #1d1d1f, #4A90D9);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero p {
+            font-size: 20px; color: #666; max-width: 600px; margin: 0 auto 36px;
+        }
+        .hero-actions { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 14px 32px; background: #4A90D9; color: #fff;
+            border-radius: 12px; font-size: 17px; font-weight: 600;
+            transition: all .2s; box-shadow: 0 4px 14px rgba(74,144,217,0.35);
+        }
+        .btn-primary:hover { background: #357ABD; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(74,144,217,0.45); }
+        .btn-secondary {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 14px 32px; background: #f5f5f7; color: #1d1d1f;
+            border-radius: 12px; font-size: 17px; font-weight: 600;
+            transition: all .2s;
+        }
+        .btn-secondary:hover { background: #e8e8ed; transform: translateY(-2px); }
+        .hero-meta { margin-top: 24px; font-size: 13px; color: #999; }
+        .hero-meta span { margin: 0 8px; }
+
+        /* ===== App Preview ===== */
+        .preview {
+            max-width: 760px; margin: -20px auto 0;
+            padding: 0 24px;
+        }
+        .preview-window {
+            background: #f8f9fa;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+        .preview-titlebar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 12px 16px;
+            background: #e9ecef;
+        }
+        .preview-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .preview-dot.red { background: #ff5f57; }
+        .preview-dot.yellow { background: #febc2e; }
+        .preview-dot.green { background: #28c840; }
+        .preview-titlebar-text { flex: 1; text-align: center; font-size: 13px; color: #666; }
+        .preview-body { padding: 32px 40px; min-height: 340px; }
+        .preview-tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 2px solid #e9ecef; }
+        .preview-tab {
+            padding: 10px 28px; font-size: 15px; color: #999;
+            border-bottom: 3px solid transparent; margin-bottom: -2px; cursor: default;
+        }
+        .preview-tab.active { color: #333; font-weight: 700; border-bottom-color: #4A90D9; }
+        .preview-dropzone {
+            border: 2px dashed #c0c0c0; border-radius: 12px;
+            padding: 36px; text-align: center; background: #fff;
+        }
+        .preview-dropzone .icon { font-size: 48px; margin-bottom: 8px; }
+        .preview-dropzone .text { font-size: 16px; color: #666; }
+        .preview-dropzone .sub { font-size: 13px; color: #aaa; margin-top: 4px; }
+        .preview-btn {
+            display: inline-block; margin-top: 20px;
+            padding: 10px 24px; background: #34C759; color: #fff;
+            border-radius: 8px; font-size: 15px; font-weight: 700;
+        }
+
+        /* ===== Features ===== */
+        .features { padding: 100px 24px; background: #fff; }
+        .features-inner { max-width: 1080px; margin: 0 auto; }
+        .section-title { text-align: center; font-size: 36px; font-weight: 800; margin-bottom: 12px; }
+        .section-subtitle { text-align: center; font-size: 18px; color: #888; margin-bottom: 60px; }
+        .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+        .feature-card {
+            padding: 32px; border-radius: 16px;
+            background: #f8f9fa; transition: all .3s;
+        }
+        .feature-card:hover { background: #f0f4ff; transform: translateY(-4px); box-shadow: 0 8px 30px rgba(0,0,0,0.06); }
+        .feature-icon { font-size: 40px; margin-bottom: 16px; }
+        .feature-card h3 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+        .feature-card p { font-size: 15px; color: #666; line-height: 1.7; }
+
+        /* ===== How it works ===== */
+        .how { padding: 100px 24px; background: #f5f9ff; }
+        .how-inner { max-width: 800px; margin: 0 auto; }
+        .steps { display: flex; flex-direction: column; gap: 40px; margin-top: 60px; }
+        .step { display: flex; align-items: flex-start; gap: 24px; }
+        .step-number {
+            flex-shrink: 0; width: 48px; height: 48px;
+            display: flex; align-items: center; justify-content: center;
+            background: #4A90D9; color: #fff; border-radius: 50%;
+            font-size: 20px; font-weight: 800;
+        }
+        .step-content h3 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+        .step-content p { font-size: 15px; color: #666; }
+
+        /* ===== Comparison ===== */
+        .comparison { padding: 100px 24px; background: #fff; }
+        .comparison-inner { max-width: 800px; margin: 0 auto; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin-top: 48px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px #e9ecef; }
+        .comparison-table th, .comparison-table td { padding: 16px 20px; text-align: left; font-size: 15px; }
+        .comparison-table thead { background: #4A90D9; color: #fff; }
+        .comparison-table thead th { font-weight: 700; }
+        .comparison-table tbody tr { border-bottom: 1px solid #f0f0f0; }
+        .comparison-table tbody tr:nth-child(even) { background: #f8f9fa; }
+        .comparison-table .check { color: #34C759; font-weight: 700; }
+        .comparison-table .cross { color: #ccc; }
+
+        /* ===== Pricing ===== */
+        .pricing { padding: 100px 24px; background: #f5f9ff; }
+        .pricing-inner { max-width: 900px; margin: 0 auto; }
+        .pricing-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px; margin-top: 60px; }
+        .pricing-card {
+            padding: 40px 32px; border-radius: 16px; background: #fff;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            text-align: center; position: relative; transition: all .3s;
+        }
+        .pricing-card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+        .pricing-card.featured { border: 2px solid #4A90D9; }
+        .pricing-card.featured::before {
+            content: "推荐"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            background: #4A90D9; color: #fff; padding: 4px 16px; border-radius: 12px;
+            font-size: 12px; font-weight: 700;
+        }
+        .pricing-card h3 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+        .pricing-card .price { font-size: 42px; font-weight: 800; margin: 16px 0; }
+        .pricing-card .price small { font-size: 16px; font-weight: 400; color: #999; }
+        .pricing-card ul { list-style: none; text-align: left; margin: 24px 0; }
+        .pricing-card li { padding: 8px 0; font-size: 15px; color: #555; display: flex; align-items: center; gap: 8px; }
+        .pricing-card li::before { content: "✓"; color: #34C759; font-weight: 700; }
+        .pricing-card .btn-price {
+            display: inline-block; width: 100%; padding: 14px;
+            border-radius: 10px; font-size: 16px; font-weight: 700;
+            transition: all .2s; margin-top: 8px;
+        }
+        .btn-price-free { background: #f5f5f7; color: #333; }
+        .btn-price-free:hover { background: #e8e8ed; }
+        .btn-price-pro { background: #4A90D9; color: #fff; }
+        .btn-price-pro:hover { background: #357ABD; }
+
+        /* ===== FAQ ===== */
+        .faq { padding: 100px 24px; background: #fff; }
+        .faq-inner { max-width: 720px; margin: 0 auto; }
+        .faq-item { border-bottom: 1px solid #eee; }
+        .faq-question {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 0; cursor: pointer; font-size: 17px; font-weight: 600;
+        }
+        .faq-question::after { content: "+"; font-size: 24px; color: #999; transition: transform .3s; }
+        .faq-question.open::after { transform: rotate(45deg); }
+        .faq-answer { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+        .faq-answer-inner { padding: 0 0 20px; font-size: 15px; color: #666; line-height: 1.8; }
+
+        /* ===== CTA ===== */
+        .cta { padding: 100px 24px; text-align: center; background: linear-gradient(135deg, #4A90D9, #357ABD); color: #fff; }
+        .cta h2 { font-size: 36px; font-weight: 800; margin-bottom: 16px; }
+        .cta p { font-size: 18px; opacity: 0.9; margin-bottom: 36px; }
+        .btn-cta {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 16px 40px; background: #fff; color: #4A90D9;
+            border-radius: 12px; font-size: 18px; font-weight: 700;
+            transition: all .2s; box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+        }
+        .btn-cta:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+
+        /* ===== Footer ===== */
+        .footer {
+            padding: 40px 24px; text-align: center;
+            background: #1d1d1f; color: #86868b; font-size: 13px;
+        }
+        .footer a { color: #86868b; }
+        .footer a:hover { color: #fff; }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 32px; }
+            .hero p { font-size: 17px; }
+            .features-grid { grid-template-columns: 1fr; }
+            .pricing-cards { grid-template-columns: 1fr; }
+            .nav-links { display: none; }
+            .preview-body { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav">
+    <div class="nav-inner">
+        <div class="nav-brand"><span>📄</span> Word 文档工具</div>
+        <div class="nav-links">
+            <a href="#features">功能特性</a>
+            <a href="#how">使用方法</a>
+            <a href="#pricing">价格</a>
+            <a href="#faq">常见问题</a>
+        </div>
+        <a href="#download" class="nav-cta">免费下载</a>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero" id="download">
+    <div class="hero-badge">macOS 桌面应用 · 免费使用</div>
+    <h1>Word 文档瘦身神器</h1>
+    <p>一键智能压缩 Word 文档中的图片，大幅减小文件体积。还能按份数拆分文档，办公效率翻倍。</p>
+    <div class="hero-actions">
+        <a href="#" class="btn-primary">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 14.5-5-5h3.5V7h3v4.5H17l-5 5Z"/></svg>
+            免费下载 DMG
+        </a>
+        <a href="https://gitee.com/llg007/java_rpa" class="btn-secondary" target="_blank">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"/></svg>
+            查看源码
+        </a>
+    </div>
+    <div class="hero-meta">
+        <span>v1.0.0</span> ·
+        <span>macOS 12+</span> ·
+        <span>约 50MB</span> ·
+        <span>中文界面</span>
+    </div>
+</section>
+
+<!-- App Preview -->
+<section class="preview">
+    <div class="preview-window">
+        <div class="preview-titlebar">
+            <div class="preview-dot red"></div>
+            <div class="preview-dot yellow"></div>
+            <div class="preview-dot green"></div>
+            <div class="preview-titlebar-text">Word 文档工具 v1.0.0</div>
+        </div>
+        <div class="preview-body">
+            <div class="preview-tabs">
+                <div class="preview-tab active">压缩文档</div>
+                <div class="preview-tab">文档拆分</div>
+            </div>
+            <div class="preview-dropzone">
+                <div class="icon">📄</div>
+                <div class="text">将 Word 文档拖拽到此处</div>
+                <div class="sub">支持 .docx 格式</div>
+            </div>
+            <div style="text-align:center;">
+                <div class="preview-btn">开始智能压缩</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features -->
+<section class="features" id="features">
+    <div class="features-inner">
+        <h2 class="section-title">两大核心功能</h2>
+        <p class="section-subtitle">简洁高效，专注解决 Word 文档体积过大的痛点</p>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🗜️</div>
+                <h3>智能图片压缩</h3>
+                <p>自动检测文档中的所有图片，在保证清晰度的前提下智能压缩，平均压缩率可达 60%-80%。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">✂️</div>
+                <h3>文档拆分</h3>
+                <p>将一个大型 Word 文档按指定份数均匀拆分为多个子文档，完整保留原始样式和格式。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🖱️</div>
+                <h3>拖拽操作</h3>
+                <p>支持文件拖拽，将 .docx 文件直接拖到窗口即可开始处理，操作极其简单。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>压缩报告</h3>
+                <p>压缩完成后展示详细的压缩报告：每张图片的原始大小、压缩后大小和压缩率一目了然。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📐</div>
+                <h3>排版不变</h3>
+                <p>压缩图片后自动替换回原位置，文档排版、样式、表格等一切保持不变。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3>本地处理</h3>
+                <p>所有文件均在本地处理，不上传任何数据到云端，完全保障您的文档隐私安全。</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How it works -->
+<section class="how" id="how">
+    <div class="how-inner">
+        <h2 class="section-title">三步搞定</h2>
+        <p class="section-subtitle">简单到不需要教程</p>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>拖入文件</h3>
+                    <p>将 .docx 文件拖拽到应用窗口，或点击"选择文件"按钮手动选取。</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>一键处理</h3>
+                    <p>点击"开始智能压缩"或设置拆分份数后点击"开始拆分"，剩下的交给工具自动完成。</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>查看结果</h3>
+                    <p>处理完成后，查看压缩报告或拆分结果，点击"在 Finder 中显示"直接定位文件。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Comparison -->
+<section class="comparison">
+    <div class="comparison-inner">
+        <h2 class="section-title">为什么选择我们</h2>
+        <p class="section-subtitle">与同类方案的对比</p>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>对比项</th>
+                    <th>Word 文档工具</th>
+                    <th>在线压缩网站</th>
+                    <th>手动处理</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>隐私安全</td>
+                    <td class="check">本地处理，不上传</td>
+                    <td class="cross">需上传到服务器</td>
+                    <td class="check">本地处理</td>
+                </tr>
+                <tr>
+                    <td>操作便捷</td>
+                    <td class="check">拖拽一键完成</td>
+                    <td class="check">上传等待下载</td>
+                    <td class="cross">逐张图片手动处理</td>
+                </tr>
+                <tr>
+                    <td>批量处理</td>
+                    <td class="check">支持</td>
+                    <td class="cross">通常有限制</td>
+                    <td class="cross">非常耗时</td>
+                </tr>
+                <tr>
+                    <td>排版保持</td>
+                    <td class="check">完全保持</td>
+                    <td class="cross">可能变化</td>
+                    <td class="check">手动保持</td>
+                </tr>
+                <tr>
+                    <td>文件大小限制</td>
+                    <td class="check">无限制</td>
+                    <td class="cross">通常 &lt; 50MB</td>
+                    <td class="check">无限制</td>
+                </tr>
+                <tr>
+                    <td>网络依赖</td>
+                    <td class="check">完全离线</td>
+                    <td class="cross">需要联网</td>
+                    <td class="check">完全离线</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Pricing -->
+<section class="pricing" id="pricing">
+    <div class="pricing-inner">
+        <h2 class="section-title">简单定价</h2>
+        <p class="section-subtitle">免费版已满足大多数需求</p>
+        <div class="pricing-cards">
+            <div class="pricing-card">
+                <h3>免费版</h3>
+                <div class="price">¥0 <small>/ 永久</small></div>
+                <ul>
+                    <li>智能图片压缩</li>
+                    <li>文档拆分</li>
+                    <li>拖拽操作</li>
+                    <li>压缩详情报告</li>
+                    <li>完全本地处理</li>
+                </ul>
+                <a href="#download" class="btn-price btn-price-free">免费下载</a>
+            </div>
+            <div class="pricing-card featured">
+                <h3>专业版</h3>
+                <div class="price">¥29 <small>/ 买断</small></div>
+                <ul>
+                    <li>免费版全部功能</li>
+                    <li>批量文件处理</li>
+                    <li>自定义压缩质量</li>
+                    <li>批量文档拆分</li>
+                    <li>优先技术支持</li>
+                    <li>后续版本免费升级</li>
+                </ul>
+                <a href="#" class="btn-price btn-price-pro">立即购买</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+    <div class="faq-inner">
+        <h2 class="section-title">常见问题</h2>
+        <p class="section-subtitle">有疑问？看这里</p>
+        <div style="margin-top:48px;">
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">支持哪些文件格式？</div>
+                <div class="faq-answer"><div class="faq-answer-inner">目前支持 .docx 格式的 Word 文档（Microsoft Word 2007 及以上版本）。暂不支持 .doc（旧版 Word 格式）和 .pdf 格式。</div></div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">压缩后图片质量会下降很多吗？</div>
+                <div class="faq-answer"><div class="faq-answer-inner">工具采用智能均衡压缩算法，在保证图片清晰可读的前提下进行压缩。实际测试中，肉眼几乎无法察觉压缩前后的差异，但文件体积可减小 60%-80%。</div></div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">macOS 提示"无法验证开发者"怎么办？</div>
+                <div class="faq-answer"><div class="faq-answer-inner">首次打开时，右键点击应用图标 → 选择"打开" → 在弹出的对话框中再次点击"打开"即可。这是 macOS 对未签名应用的安全提示，只需操作一次。</div></div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">我的文件会被上传到云端吗？</div>
+                <div class="faq-answer"><div class="faq-answer-inner">不会。所有文件处理均在您的本地电脑上完成，应用不会连接任何网络，不会上传任何数据。您的文档隐私安全得到完全保障。</div></div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">支持 Windows 吗？</div>
+                <div class="faq-answer"><div class="faq-answer-inner">目前仅支持 macOS 12 及以上版本。Windows 版本正在开发中，敬请期待。</div></div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">原始文档会被修改吗？</div>
+                <div class="faq-answer"><div class="faq-answer-inner">不会。工具会生成一个新的压缩后文件（文件名后缀 _compressed），原始文档保持不变。</div></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+    <h2>告别超大 Word 文档</h2>
+    <p>立即下载，让 Word 文档瘦身 60% 以上</p>
+    <a href="#download" class="btn-cta">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 14.5-5-5h3.5V7h3v4.5H17l-5 5Z"/></svg>
+        免费下载
+    </a>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+    <p>Word 文档工具 &copy; 2025. All rights reserved.</p>
+    <p style="margin-top:8px;">
+        <a href="mailto:sishuinianhua369@126.com">联系我们</a> ·
+        <a href="https://gitee.com/llg007/java_rpa" target="_blank">Gitee</a>
+    </p>
+</footer>
+
+<script>
+function toggleFaq(el) {
+    const answer = el.nextElementSibling;
+    const isOpen = el.classList.toggle('open');
+    answer.style.maxHeight = isOpen ? answer.scrollHeight + 'px' : '0';
+}
+</script>
+
+</body>
+</html>
